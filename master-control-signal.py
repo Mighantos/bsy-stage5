@@ -137,11 +137,11 @@ def request_logged_in_users(git, number):
 
 def request_content_of_directory(git, number):
     path = input("Which directory?\n")
-    path = base64.b64encode(path.encode("utf-8")).decode("utf-8")
+    path_base = base64.b64encode(path.encode("utf-8")).decode("utf-8")
     print("Ordering the droids now.")
     comment_text = "# Assignment " + str(
         number) + "\nStudents, what is the content of your home directory?\n\n[//]: <> ( " \
-                   + path + " )"
+                   + path_base + " )"
     git.add_comment_to_gist(comment_text)
     wait_for_reasonable_time()
     related_comments = []
